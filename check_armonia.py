@@ -538,25 +538,37 @@ def get_fir_values():
         print("Invalid input. Please enter comma-separated numbers.")
         return None
 
-def create_group_links():
-    """Create group links from user input"""
+def create_group_links(include_guid=False):
+    """Create group links from user input, optionally including GUID"""
     links = []
     while True:
         print("\nEnter group link details (or 'x' to finish):")
-        device_id = input("Device ID (or 'x' to finish): ")
+        device_id = input("Device ID (or 'x' to finish): ").strip()
         if device_id.lower() == 'x':
             break
             
-        channel = input("Channel: ")
+        channel_str = input("Channel: ").strip()
+        
+        guid = None
+        if include_guid:
+            guid = input("Group GUID (required for unassigning): ").strip()
+            if not guid:
+                print("❌ GUID is required for unassigning. Please try again.")
+                continue # Ask for this link again
+        
         try:
-            channel_num = int(channel)
-            links.append({
+            channel_num = int(channel_str)
+            link_obj = {
                 "UniqueID": device_id,
                 "Channel": str(channel_num)
-            })
-            print(f"Added link for device {device_id}, channel {channel_num}")
+            }
+            if guid:
+                link_obj["Guid"] = guid
+                
+            links.append(link_obj)
+            print(f"Added link: {json.dumps(link_obj)}")
         except ValueError:
-            print("Invalid channel number.")
+            print("❌ Invalid channel number. Please enter a number.")
     
     return links
 
@@ -722,7 +734,8 @@ def main():
         
         elif choice == '10':
             if devices:
-                group_links = create_group_links()
+                # Create links without GUID for assignment
+                group_links = create_group_links(include_guid=False)
                 if group_links:
                     create_and_assign_group(args.url, args.token, group_links)
             else:
@@ -730,7 +743,8 @@ def main():
         
         elif choice == '11':
             if devices:
-                group_links = create_group_links()
+                # Create links *with* GUID for unassignment
+                group_links = create_group_links(include_guid=True)
                 if group_links:
                     unassign_group(args.url, args.token, group_links)
             else:
