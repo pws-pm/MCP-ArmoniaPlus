@@ -23,8 +23,8 @@ DEFAULT_API_URL = "http://192.168.1.30:40402/api/ARA"
 DEFAULT_AUTH_TOKEN = "fcb0d2ee-9179-4968-8799-690fd242d530"
 
 def get_system_status(api_url, auth_token):
-    """Get the status of all devices in the ArmoníaPlus system"""
-    print(f"Checking ArmoníaPlus API at {api_url}/GetSystemStatus...")
+    """Get the system status including all devices"""
+    print("Getting system status...")
     
     try:
         response = requests.get(
@@ -34,37 +34,30 @@ def get_system_status(api_url, auth_token):
         )
         
         if response.status_code == 200:
-            print("✅ ArmoníaPlus API is working!")
+            print("✅ System status retrieved successfully!")
             data = response.json()
-            devices = data.get("devices", [])
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return None
             
-            if not devices:
-                print("No devices found in the system.")
-                return []
-            
+            # Process and display devices information
+            devices = data.get("DEVICES", [])
             print(f"\nFound {len(devices)} devices:")
-            print("-" * 50)
             
-            for i, device in enumerate(devices, 1):
-                name = device.get("name", "Unnamed")
-                model = device.get("model", "Unknown")
-                status = "Online" if device.get("isOnline", False) else "Offline"
-                device_id = device.get("uniqueID", "Unknown")
-                
-                print(f"{i}. {name} ({model}) - {status}")
-                print(f"   ID: {device_id}")
-                print()
+            for idx, device in enumerate(devices, 1):
+                status = "🟢 ONLINE" if device.get("IS_ONLINE") else "🔴 OFFLINE"
+                print(f"{idx}. {device.get('MODEL')} ({device.get('UNIQUE_ID')}) - {status}")
                 
             return devices
         else:
-            print(f"❌ API request failed with status code: {response.status_code}")
+            print(f"❌ Failed to get system status: {response.status_code}")
             print(f"Response: {response.text}")
-            return []
+            return None
             
     except requests.RequestException as e:
         print(f"❌ Error connecting to ArmoníaPlus API: {e}")
-        print("Make sure ArmoníaPlus is running and the API is enabled.")
-        return []
+        return None
 
 def set_advanced_eq_gain(api_url, auth_token, unique_id, channel, value):
     """Set the gain of Advanced EQ for a specific channel"""
@@ -86,6 +79,11 @@ def set_advanced_eq_gain(api_url, auth_token, unique_id, channel, value):
         
         if response.status_code == 200:
             print("✅ Advanced EQ Gain set successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
             return True
         else:
             print(f"❌ Failed to set Advanced EQ Gain: {response.status_code}")
@@ -116,6 +114,11 @@ def set_advanced_eq_delay(api_url, auth_token, unique_id, channel, value):
         
         if response.status_code == 200:
             print("✅ Advanced EQ Delay set successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
             return True
         else:
             print(f"❌ Failed to set Advanced EQ Delay: {response.status_code}")
@@ -149,6 +152,11 @@ def set_speaker_eq_fir(api_url, auth_token, unique_id, channel, values):
         
         if response.status_code == 200:
             print("✅ Speaker EQ FIR set successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
             return True
         else:
             print(f"❌ Failed to set Speaker EQ FIR: {response.status_code}")
@@ -182,6 +190,11 @@ def set_output_eq_fir(api_url, auth_token, unique_id, channel, values):
         
         if response.status_code == 200:
             print("✅ Output EQ FIR set successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
             return True
         else:
             print(f"❌ Failed to set Output EQ FIR: {response.status_code}")
@@ -212,6 +225,11 @@ def set_output_eq_gain(api_url, auth_token, unique_id, channel, value):
         
         if response.status_code == 200:
             print("✅ Output EQ Gain set successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
             return True
         else:
             print(f"❌ Failed to set Output EQ Gain: {response.status_code}")
@@ -242,6 +260,11 @@ def set_output_eq_phase(api_url, auth_token, unique_id, channel, value):
         
         if response.status_code == 200:
             print("✅ Output EQ Phase set successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
             return True
         else:
             print(f"❌ Failed to set Output EQ Phase: {response.status_code}")
@@ -311,13 +334,14 @@ def unassign_group(api_url, auth_token, group_links):
         print(f"❌ Error connecting to ArmoníaPlus API: {e}")
         return False
 
-def open_entity_details(api_url, auth_token, unique_id):
-    """Open and view the entity details"""
-    print(f"Opening entity details for device {unique_id}...")
+def open_entity_details(api_url, auth_token, unique_id, entity_type):
+    """Open entity details for a specific device"""
+    print(f"Opening entity details for device {unique_id}, type {entity_type}...")
     
     try:
         payload = {
-            "UniqueID": unique_id
+            "UniqueID": unique_id,
+            "EntityType": entity_type
         }
         
         response = requests.post(
@@ -329,6 +353,13 @@ def open_entity_details(api_url, auth_token, unique_id):
         
         if response.status_code == 200:
             print("✅ Entity details opened successfully!")
+            data = response.json()
+            if data.get("ERROR_CODE"):
+                print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
+                return False
+            
+            print(f"Response: {json.dumps(data, indent=2)}")
             return True
         else:
             print(f"❌ Failed to open entity details: {response.status_code}")
@@ -340,30 +371,25 @@ def open_entity_details(api_url, auth_token, unique_id):
         return False
 
 def select_device(devices):
-    """Interactive selection of a device from the list"""
+    """Helper function to select a device from a list"""
     if not devices:
-        print("No devices available to select.")
+        print("No devices available.")
         return None
         
     print("\nSelect a device:")
-    for i, device in enumerate(devices, 1):
-        name = device.get("name", "Unnamed")
-        model = device.get("model", "Unknown")
-        status = "Online" if device.get("isOnline", False) else "Offline"
-        print(f"{i}. {name} ({model}) - {status}")
-    
-    choice = input("\nEnter device number (or 0 to cancel): ")
+    for idx, device in enumerate(devices, 1):
+        status = "🟢 ONLINE" if device.get("IS_ONLINE") else "🔴 OFFLINE"
+        print(f"{idx}. {device.get('MODEL')} ({device.get('UNIQUE_ID')}) - {status}")
+        
     try:
-        index = int(choice) - 1
-        if index == -1:
-            return None
-        if 0 <= index < len(devices):
-            return devices[index]
+        selection = int(input("\nEnter device number: ").strip())
+        if 1 <= selection <= len(devices):
+            return devices[selection - 1]
         else:
-            print("Invalid selection.")
+            print("❌ Invalid selection.")
             return None
     except ValueError:
-        print("Invalid input. Please enter a number.")
+        print("❌ Please enter a valid number.")
         return None
 
 def select_channel(max_channels=8):
@@ -459,127 +485,157 @@ def create_group_links():
     return links
 
 def main():
-    """Main function to run the ArmoníaPlus API testing tool"""
-    parser = argparse.ArgumentParser(description='ArmoníaPlus API Testing Tool')
-    parser.add_argument('--url', help='ArmoníaPlus API URL', 
-                        default=os.environ.get("ARMONIA_API_URL", DEFAULT_API_URL))
-    parser.add_argument('--token', help='Authentication token', 
-                        default=os.environ.get("ARMONIA_AUTH_TOKEN", DEFAULT_AUTH_TOKEN))
+    """Main function to run the script"""
+    parser = argparse.ArgumentParser(description='Test ArmoníaPlus API connectivity and operations')
+    parser.add_argument('--url', default='http://192.168.1.31:40402/api/ARA', 
+                        help='ArmoníaPlus API URL (default: http://192.168.1.31:40402/api/ARA)')
+    parser.add_argument('--token', default='fcb0d2ee-9179-4968-8799-690fd242d530',
+                        help='Authentication token (default: fcb0d2ee-9179-4968-8799-690fd242d530)')
     args = parser.parse_args()
     
-    api_url = args.url
-    auth_token = args.token
+    print("=" * 60)
+    print("ArmoníaPlus API Test Tool")
+    print("=" * 60)
+    print(f"API URL: {args.url}")
+    print(f"Auth Token: {args.token}")
+    print("=" * 60)
     
-    print("="*50)
-    print("ArmoníaPlus API Testing Tool")
-    print("="*50)
-    print(f"API URL: {api_url}")
-    print("="*50)
+    # First, check if API is reachable
+    devices = get_system_status(args.url, args.token)
     
-    # First check if the API is accessible
-    devices = get_system_status(api_url, auth_token)
     if not devices:
-        print("Cannot proceed without accessible devices.")
-        return 1
+        print("❌ Could not retrieve devices. Please check the API URL and token.")
+        return
     
     while True:
-        print("\n" + "="*50)
-        print("Select an API command to test:")
-        print("1. GetSystemStatus - Refresh device list")
-        print("2. SetAdvancedEqGain - Set the gain of Advanced EQ")
-        print("3. SetAdvancedEqDelay - Set the delay of Advanced EQ")
-        print("4. SetSpeakerEqFIR - Set the Speaker EQ FIR")
-        print("5. SetOutputEqFIR - Set the Output EQ FIR")
-        print("6. SetOutputEqGain - Set the Output EQ Gain")
-        print("7. SetOutputEqPhase - Set the Output EQ Phase")
-        print("8. CreateAndAssignGroup - Create and assign a group")
-        print("9. UnassignGroup - Unassign a group")
-        print("10. OpenEntityDetails - Open entity details")
+        print("\n" + "=" * 60)
+        print("ArmoníaPlus API Operations Menu")
+        print("=" * 60)
+        print("1. Get System Status (List Devices)")
+        print("2. Open Device Details")
+        print("3. Set Advanced EQ Gain")
+        print("4. Set Advanced EQ Delay")
+        print("5. Set Advanced EQ Mode")
+        print("6. Set Speaker EQ FIR")
+        print("7. Set Output EQ FIR")
+        print("8. Set Output EQ Gain")
+        print("9. Set Output EQ Phase")
         print("0. Exit")
-        print("="*50)
+        print("=" * 60)
         
-        choice = input("\nEnter your choice (0-10): ")
+        choice = input("Select an operation (0-9): ").strip()
         
         if choice == '0':
             print("Exiting...")
             break
             
         elif choice == '1':
-            devices = get_system_status(api_url, auth_token)
+            devices = get_system_status(args.url, args.token)
             
         elif choice == '2':
-            device = select_device(devices)
-            if device:
-                channel = select_channel()
-                if channel is not None:
-                    value = get_float_value("Enter gain value (-80 to 20 dB, or 'x' to cancel): ", -80, 20)
-                    if value is not None:
-                        set_advanced_eq_gain(api_url, auth_token, device['uniqueID'], channel, value)
-                        
+            if devices:
+                device = select_device(devices)
+                if device:
+                    # Ask for entity type
+                    entity_type = input("Enter entity type (default: 'DEVICE'): ").strip() or "DEVICE"
+                    open_entity_details(args.url, args.token, device.get('UNIQUE_ID'), entity_type)
+            else:
+                print("❌ No devices available. Please get system status first.")
+                
         elif choice == '3':
-            device = select_device(devices)
-            if device:
-                channel = select_channel()
-                if channel is not None:
-                    value = get_float_value("Enter delay value (0 to 2000 ms, or 'x' to cancel): ", 0, 2000)
-                    if value is not None:
-                        set_advanced_eq_delay(api_url, auth_token, device['uniqueID'], channel, value)
-                        
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    try:
+                        value = float(input("Enter gain value (dB): ").strip())
+                        set_advanced_eq_gain(args.url, args.token, device.get('UNIQUE_ID'), channel, value)
+                    except ValueError:
+                        print("❌ Invalid gain value. Please enter a numeric value.")
+            else:
+                print("❌ No devices available. Please get system status first.")
+                
         elif choice == '4':
-            device = select_device(devices)
-            if device:
-                channel = select_channel()
-                if channel is not None:
-                    values = get_fir_values()
-                    if values:
-                        set_speaker_eq_fir(api_url, auth_token, device['uniqueID'], channel, values)
-                        
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    try:
+                        value = float(input("Enter delay value (ms): ").strip())
+                        set_advanced_eq_delay(args.url, args.token, device.get('UNIQUE_ID'), channel, value)
+                    except ValueError:
+                        print("❌ Invalid delay value. Please enter a numeric value.")
+            else:
+                print("❌ No devices available. Please get system status first.")
+                
         elif choice == '5':
-            device = select_device(devices)
-            if device:
-                channel = select_channel()
-                if channel is not None:
-                    values = get_fir_values()
-                    if values:
-                        set_output_eq_fir(api_url, auth_token, device['uniqueID'], channel, values)
-                        
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    eq_index = input("Enter EQ index: ").strip()
+                    mode = input("Enter mode (e.g., 'PEAK', 'NOTCH', 'LOWSHELF', 'HIGHSHELF'): ").strip()
+                    set_advanced_eq_mode(args.url, args.token, device.get('UNIQUE_ID'), channel, eq_index, mode)
+            else:
+                print("❌ No devices available. Please get system status first.")
+                
         elif choice == '6':
-            device = select_device(devices)
-            if device:
-                channel = select_channel()
-                if channel is not None:
-                    value = get_float_value("Enter gain value (-80 to 20 dB, or 'x' to cancel): ", -80, 20)
-                    if value is not None:
-                        set_output_eq_gain(api_url, auth_token, device['uniqueID'], channel, value)
-                        
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    values_str = input("Enter FIR values (comma separated): ").strip()
+                    values = [v.strip() for v in values_str.split(',')]
+                    set_speaker_eq_fir(args.url, args.token, device.get('UNIQUE_ID'), channel, values)
+            else:
+                print("❌ No devices available. Please get system status first.")
+                
         elif choice == '7':
-            device = select_device(devices)
-            if device:
-                channel = select_channel()
-                if channel is not None:
-                    value = get_boolean_value("Invert phase?")
-                    if value is not None:
-                        set_output_eq_phase(api_url, auth_token, device['uniqueID'], channel, value)
-                        
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    values_str = input("Enter FIR values (comma separated): ").strip()
+                    values = [v.strip() for v in values_str.split(',')]
+                    set_output_eq_fir(args.url, args.token, device.get('UNIQUE_ID'), channel, values)
+            else:
+                print("❌ No devices available. Please get system status first.")
+                
         elif choice == '8':
-            group_links = create_group_links()
-            if group_links:
-                create_and_assign_group(api_url, auth_token, group_links)
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    try:
+                        value = float(input("Enter gain value (dB): ").strip())
+                        set_output_eq_gain(args.url, args.token, device.get('UNIQUE_ID'), channel, value)
+                    except ValueError:
+                        print("❌ Invalid gain value. Please enter a numeric value.")
+            else:
+                print("❌ No devices available. Please get system status first.")
                 
         elif choice == '9':
-            group_links = create_group_links()
-            if group_links:
-                unassign_group(api_url, auth_token, group_links)
-                
-        elif choice == '10':
-            device = select_device(devices)
-            if device:
-                open_entity_details(api_url, auth_token, device['uniqueID'])
+            if devices:
+                device = select_device(devices)
+                if device:
+                    channel = input("Enter channel number: ").strip()
+                    phase_str = input("Enter phase (true/false): ").strip().lower()
+                    if phase_str in ('true', 't', 'yes', 'y', '1'):
+                        value = True
+                    elif phase_str in ('false', 'f', 'no', 'n', '0'):
+                        value = False
+                    else:
+                        print("❌ Invalid phase value. Please enter true or false.")
+                        continue
+                    set_output_eq_phase(args.url, args.token, device.get('UNIQUE_ID'), channel, value)
+            else:
+                print("❌ No devices available. Please get system status first.")
                 
         else:
-            print("Invalid choice. Please try again.")
-            
-    return 0
+            print("❌ Invalid choice. Please try again.")
+        
+        # Pause before showing the menu again
+        input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
     sys.exit(main()) 
