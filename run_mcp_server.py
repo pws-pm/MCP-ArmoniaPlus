@@ -12,6 +12,11 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+def print_stderr(*args, **kwargs):
+    """Print to stderr instead of stdout"""
+    kwargs['file'] = sys.stderr
+    print(*args, **kwargs)
+
 def setup_environment():
     """Ensure the environment is properly set up"""
     # Check if required environment variables are set
@@ -24,11 +29,11 @@ def setup_environment():
     for var, default in required_vars.items():
         if var not in os.environ:
             os.environ[var] = default
-            print(f"Set {var}={default}")
+            print_stderr(f"Set {var}={default}")
 
 def run_tests():
     """Run tests to verify the environment is ready for the MCP server"""
-    print("Running environment tests...")
+    print_stderr("Running environment tests...")
     
     # Try to import the required module
     try:
@@ -40,37 +45,37 @@ def run_tests():
         result = subprocess.run(import_cmd, capture_output=True, text=True)
         
         if result.returncode == 0:
-            print("✅ MCP SDK is available")
-            print(result.stdout.strip())
+            print_stderr("✅ MCP SDK is available")
+            print_stderr(result.stdout.strip())
         else:
-            print("❌ MCP SDK import failed")
-            print(result.stderr.strip())
+            print_stderr("❌ MCP SDK import failed")
+            print_stderr(result.stderr.strip())
             return False
     except Exception as e:
-        print(f"❌ Error checking MCP SDK: {e}")
+        print_stderr(f"❌ Error checking MCP SDK: {e}")
         return False
     
     # Check mock API is running
     api_url = os.environ.get("ARMONIA_API_URL", "").rstrip("/")
     if not api_url:
-        print("❌ ARMONIA_API_URL is not set")
+        print_stderr("❌ ARMONIA_API_URL is not set")
         return False
     
-    print(f"Checking ArmoníaPlus API at {api_url}/GetSystemStatus...")
+    print_stderr(f"Checking ArmoníaPlus API at {api_url}/GetSystemStatus...")
     try:
         import requests
         response = requests.get(f"{api_url}/GetSystemStatus", 
                               headers={"authClientToken": os.environ.get("ARMONIA_AUTH_TOKEN", "")},
                               timeout=2)
         if response.status_code == 200:
-            print("✅ ArmoníaPlus API is available")
-            print(f"Response: {response.json()}")
+            print_stderr("✅ ArmoníaPlus API is available")
+            print_stderr(f"Response: {response.json()}")
         else:
-            print(f"❌ ArmoníaPlus API returned status code {response.status_code}")
+            print_stderr(f"❌ ArmoníaPlus API returned status code {response.status_code}")
             return False
     except requests.RequestException as e:
-        print(f"❌ Error connecting to ArmoníaPlus API: {e}")
-        print("   Make sure mock_armonia_api.py is running")
+        print_stderr(f"❌ Error connecting to ArmoníaPlus API: {e}")
+        print_stderr("   Make sure the ArmoníaPlus software is running with ARA API enabled")
         return False
     
     return True
@@ -80,7 +85,7 @@ def run_server(use_simplified=False, host="0.0.0.0", port=8080):
     setup_environment()
     
     if use_simplified:
-        print("Running simplified MCP server...")
+        print_stderr("Running simplified MCP server...")
         # Set environment variables for the simplified server
         os.environ["MCP_HOST"] = host
         os.environ["MCP_PORT"] = str(port)
@@ -88,17 +93,17 @@ def run_server(use_simplified=False, host="0.0.0.0", port=8080):
         # Run the simplified server
         subprocess.run([sys.executable, "simplified_mcp_server.py"])
     else:
-        print("Running official MCP server...")
+        print_stderr("Running official MCP server...")
         
         # Run pre-flight tests
         if not run_tests():
-            print("\n⚠️ Environment tests failed. You have two options:")
-            print("1. Fix the issues described above and try again")
-            print("2. Run with --simplified flag to use the simplified server")
+            print_stderr("\n⚠️ Environment tests failed. You have two options:")
+            print_stderr("1. Fix the issues described above and try again")
+            print_stderr("2. Run with --simplified flag to use the simplified server")
             return
         
         # Run the official MCP server
-        subprocess.run([sys.executable, "mcp_server_armonia.py"])
+        os.execv(sys.executable, [sys.executable, "mcp_server_armonia.py"])
 
 def main():
     parser = argparse.ArgumentParser(description="Run the MCP server for ArmoníaPlus")

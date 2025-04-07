@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "armonia": {
+            "command": "python3",
+            "args": [
+                "--directory",
+                "/Users/luigichelli/Library/CloudStorage/OneDrive-POWERSOFTS.P.A/_MY/Coding/Python/Powersoft/mcp-armonia",
+                "mcp_server_armonia.py"
+            ]
+        }
+    }
+} 
