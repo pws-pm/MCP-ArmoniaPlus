@@ -66,7 +66,7 @@ def run_tests():
         import requests
         response = requests.get(f"{api_url}/GetSystemStatus", 
                               headers={"authClientToken": os.environ.get("ARMONIA_AUTH_TOKEN", "")},
-                              timeout=2)
+                              timeout=10)
         if response.status_code == 200:
             print_stderr("✅ ArmoníaPlus API is available")
             print_stderr(f"Response: {response.json()}")
@@ -80,7 +80,7 @@ def run_tests():
     
     return True
 
-def run_server(use_simplified=False, host="0.0.0.0", port=8080):
+def run_server(use_simplified=False, host="0.0.0.0", port=8080, skip_checks=False):
     """Run the appropriate MCP server"""
     setup_environment()
     
@@ -95,11 +95,11 @@ def run_server(use_simplified=False, host="0.0.0.0", port=8080):
     else:
         print_stderr("Running official MCP server...")
         
-        # Run pre-flight tests
-        if not run_tests():
+        # Run pre-flight tests if not skipped
+        if not skip_checks and not run_tests():
             print_stderr("\n⚠️ Environment tests failed. You have two options:")
             print_stderr("1. Fix the issues described above and try again")
-            print_stderr("2. Run with --simplified flag to use the simplified server")
+            print_stderr("2. Run with --no-check flag to bypass connectivity tests")
             return
         
         # Run the official MCP server
@@ -113,9 +113,11 @@ def main():
                        help="Host to bind the server to")
     parser.add_argument("--port", type=int, default=8080,
                        help="Port to run the server on")
+    parser.add_argument("--no-check", action="store_true",
+                       help="Skip connectivity checks")
     args = parser.parse_args()
     
-    run_server(use_simplified=args.simplified, host=args.host, port=args.port)
+    run_server(use_simplified=args.simplified, host=args.host, port=args.port, skip_checks=args.no_check)
 
 if __name__ == "__main__":
     main() 
