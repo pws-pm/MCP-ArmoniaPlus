@@ -39,22 +39,23 @@ def get_system_status(api_url, auth_token):
                 data = response.json()
                 print(f"API Response format: {json.dumps(data, indent=2)[:200]}...")
                 
-                # Check for error code in both capitalization formats
-                if data.get("ERROR_CODE") or data.get("error_code"):
-                    error_code = data.get("ERROR_CODE") or data.get("error_code")
-                    error_desc = data.get("ERROR_DESCRIPTION") or data.get("error_description") or "No description"
-                    print(f"❌ API Error: {error_code}")
-                    print(f"Description: {error_desc}")
+                # Check for error codes in response
+                if data.get("ERROR_CODE"):
+                    print(f"❌ API Error: {data.get('ERROR_CODE')}")
+                    print(f"Description: {data.get('ERROR_DESCRIPTION')}")
                     return None
                 
-                # Try both lowercase and uppercase formats for devices
+                # Try to locate devices with correct capitalization
                 devices = None
-                if "DEVICES" in data:
-                    devices = data.get("DEVICES", [])
+                if "Devices" in data:
+                    devices = data.get("Devices", [])
+                # Fallbacks for API inconsistency
                 elif "devices" in data:
                     devices = data.get("devices", [])
+                elif "DEVICES" in data:
+                    devices = data.get("DEVICES", [])
                 else:
-                    print("❌ No 'devices' field found in the API response.")
+                    print("❌ No 'Devices' field found in the API response.")
                     print(f"Response structure: {list(data.keys())}")
                     return None
                 
@@ -65,10 +66,11 @@ def get_system_status(api_url, auth_token):
                 print(f"\nFound {len(devices)} devices:")
                 
                 for idx, device in enumerate(devices, 1):
-                    # Try both lowercase and uppercase formats
-                    model = device.get("MODEL") or device.get("model") or "Unknown Model"
-                    device_id = device.get("UNIQUE_ID") or device.get("uniqueID") or "Unknown ID"
-                    is_online = device.get("IS_ONLINE", device.get("isOnline", False))
+                    # Per API docs: Model, UniqueID, IsOnline are the correct field names
+                    # Add fallbacks for inconsistent APIs
+                    model = device.get("Model") or device.get("model") or device.get("MODEL") or "Unknown Model"
+                    device_id = device.get("UniqueID") or device.get("uniqueID") or device.get("UNIQUE_ID") or "Unknown ID"
+                    is_online = device.get("IsOnline", device.get("isOnline", device.get("IS_ONLINE", False)))
                     
                     status = "🟢 ONLINE" if is_online else "🔴 OFFLINE"
                     print(f"{idx}. {model} ({device_id}) - {status}")
@@ -398,15 +400,20 @@ def unassign_group(api_url, auth_token, group_links):
         print(f"❌ Error connecting to ArmoníaPlus API: {e}")
         return False
 
-def open_entity_details(api_url, auth_token, unique_id, entity_type):
+def open_entity_details(api_url, auth_token, unique_id, entity_type=None):
     """Open entity details for a specific device"""
-    print(f"Opening entity details for device {unique_id}, type {entity_type}...")
+    print(f"Opening entity details for device {unique_id}...")
     
     try:
+        # According to API docs, only UniqueID is required
         payload = {
-            "UniqueID": unique_id,
-            "EntityType": entity_type
+            "UniqueID": unique_id
         }
+        
+        # Add EntityType only if provided (not in original API spec)
+        if entity_type:
+            payload["EntityType"] = entity_type
+            print(f"Note: Using optional EntityType parameter: {entity_type}")
         
         response = requests.post(
             f"{api_url}/OpenEntityDetails",
@@ -442,10 +449,10 @@ def select_device(devices):
         
     print("\nSelect a device:")
     for idx, device in enumerate(devices, 1):
-        # Try both uppercase and lowercase formats
-        model = device.get("MODEL") or device.get("model") or "Unknown Model"
-        device_id = device.get("UNIQUE_ID") or device.get("uniqueID") or "Unknown ID"
-        is_online = device.get("IS_ONLINE", device.get("isOnline", False))
+        # Use the correct case from API docs with fallbacks
+        model = device.get("Model") or device.get("model") or device.get("MODEL") or "Unknown Model"
+        device_id = device.get("UniqueID") or device.get("uniqueID") or device.get("UNIQUE_ID") or "Unknown ID"
+        is_online = device.get("IsOnline", device.get("isOnline", device.get("IS_ONLINE", False)))
         
         status = "🟢 ONLINE" if is_online else "🔴 OFFLINE"
         print(f"{idx}. {model} ({device_id}) - {status}")
@@ -581,7 +588,7 @@ def main():
         print("ArmoníaPlus API Operations Menu")
         print("=" * 60)
         print("1. Get System Status (List Devices)")
-        print("2. Open Device Details")
+        print("2. Open Entity Details")
         print("3. Set Advanced EQ Gain")
         print("4. Set Advanced EQ Delay")
         print("5. Set Advanced EQ Mode")
@@ -589,10 +596,12 @@ def main():
         print("7. Set Output EQ FIR")
         print("8. Set Output EQ Gain")
         print("9. Set Output EQ Phase")
+        print("10. Create And Assign Group")
+        print("11. Unassign Group")
         print("0. Exit")
         print("=" * 60)
         
-        choice = input("Select an operation (0-9): ").strip()
+        choice = input("Select an operation (0-11): ").strip()
         
         if choice == '0':
             print("Exiting...")
@@ -605,10 +614,12 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    # Ask for entity type
-                    entity_type = input("Enter entity type (default: 'DEVICE'): ").strip() or "DEVICE"
-                    # Get device ID in either format
-                    device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                    # Ask for entity type (optional parameter)
+                    entity_type_input = input("Enter entity type (optional, press Enter to skip): ").strip()
+                    entity_type = entity_type_input if entity_type_input else None
+                    
+                    # Get device ID with correct case first
+                    device_id = device.get('UniqueID') or device.get('uniqueID') or device.get('UNIQUE_ID')
                     open_entity_details(args.url, args.token, device_id, entity_type)
             else:
                 print("❌ No devices available. Please get system status first.")
@@ -620,7 +631,7 @@ def main():
                     channel = input("Enter channel number: ").strip()
                     try:
                         value = float(input("Enter gain value (dB): ").strip())
-                        device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                        device_id = device.get('UniqueID') or device.get('uniqueID')
                         set_advanced_eq_gain(args.url, args.token, device_id, channel, value)
                     except ValueError:
                         print("❌ Invalid gain value. Please enter a numeric value.")
@@ -634,7 +645,7 @@ def main():
                     channel = input("Enter channel number: ").strip()
                     try:
                         value = float(input("Enter delay value (ms): ").strip())
-                        device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                        device_id = device.get('UniqueID') or device.get('uniqueID')
                         set_advanced_eq_delay(args.url, args.token, device_id, channel, value)
                     except ValueError:
                         print("❌ Invalid delay value. Please enter a numeric value.")
@@ -648,7 +659,7 @@ def main():
                     channel = input("Enter channel number: ").strip()
                     eq_index = input("Enter EQ index: ").strip()
                     mode = input("Enter mode (e.g., 'PEAK', 'NOTCH', 'LOWSHELF', 'HIGHSHELF'): ").strip()
-                    device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                    device_id = device.get('UniqueID') or device.get('uniqueID')
                     set_advanced_eq_mode(args.url, args.token, device_id, channel, eq_index, mode)
             else:
                 print("❌ No devices available. Please get system status first.")
@@ -660,7 +671,7 @@ def main():
                     channel = input("Enter channel number: ").strip()
                     values_str = input("Enter FIR values (comma separated): ").strip()
                     values = [v.strip() for v in values_str.split(',')]
-                    device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                    device_id = device.get('UniqueID') or device.get('uniqueID')
                     set_speaker_eq_fir(args.url, args.token, device_id, channel, values)
             else:
                 print("❌ No devices available. Please get system status first.")
@@ -672,7 +683,7 @@ def main():
                     channel = input("Enter channel number: ").strip()
                     values_str = input("Enter FIR values (comma separated): ").strip()
                     values = [v.strip() for v in values_str.split(',')]
-                    device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                    device_id = device.get('UniqueID') or device.get('uniqueID')
                     set_output_eq_fir(args.url, args.token, device_id, channel, values)
             else:
                 print("❌ No devices available. Please get system status first.")
@@ -684,7 +695,7 @@ def main():
                     channel = input("Enter channel number: ").strip()
                     try:
                         value = float(input("Enter gain value (dB): ").strip())
-                        device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                        device_id = device.get('UniqueID') or device.get('uniqueID')
                         set_output_eq_gain(args.url, args.token, device_id, channel, value)
                     except ValueError:
                         print("❌ Invalid gain value. Please enter a numeric value.")
@@ -704,8 +715,24 @@ def main():
                     else:
                         print("❌ Invalid phase value. Please enter true or false.")
                         continue
-                    device_id = device.get('UNIQUE_ID') or device.get('uniqueID')
+                    device_id = device.get('UniqueID') or device.get('uniqueID')
                     set_output_eq_phase(args.url, args.token, device_id, channel, value)
+            else:
+                print("❌ No devices available. Please get system status first.")
+        
+        elif choice == '10':
+            if devices:
+                group_links = create_group_links()
+                if group_links:
+                    create_and_assign_group(args.url, args.token, group_links)
+            else:
+                print("❌ No devices available. Please get system status first.")
+        
+        elif choice == '11':
+            if devices:
+                group_links = create_group_links()
+                if group_links:
+                    unassign_group(args.url, args.token, group_links)
             else:
                 print("❌ No devices available. Please get system status first.")
                 
