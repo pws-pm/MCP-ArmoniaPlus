@@ -487,10 +487,10 @@ def create_group_links():
 def main():
     """Main function to run the script"""
     parser = argparse.ArgumentParser(description='Test ArmoníaPlus API connectivity and operations')
-    parser.add_argument('--url', default='http://192.168.1.31:40402/api/ARA', 
-                        help='ArmoníaPlus API URL (default: http://192.168.1.31:40402/api/ARA)')
-    parser.add_argument('--token', default='fcb0d2ee-9179-4968-8799-690fd242d530',
-                        help='Authentication token (default: fcb0d2ee-9179-4968-8799-690fd242d530)')
+    parser.add_argument('--url', default=os.environ.get('ARMONIA_API_URL', DEFAULT_API_URL), 
+                        help=f'ArmoníaPlus API URL (default from .env or {DEFAULT_API_URL})')
+    parser.add_argument('--token', default=os.environ.get('ARMONIA_AUTH_TOKEN', DEFAULT_AUTH_TOKEN),
+                        help=f'Authentication token (default from .env or {DEFAULT_AUTH_TOKEN})')
     args = parser.parse_args()
     
     print("=" * 60)
