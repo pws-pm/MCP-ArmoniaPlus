@@ -13,6 +13,7 @@ import sys
 import json
 import argparse
 import requests
+import shlex
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -20,14 +21,44 @@ load_dotenv()
 
 # Constants - removed hardcoded defaults
 
+def print_as_curl(url, headers, method="GET", data=None, timeout=10):
+    """Generate and print the equivalent cURL command for debugging"""
+    command = ["curl", "-X", method]
+    
+    # Add headers
+    for key, value in headers.items():
+        command.extend(["-H", f"{key}: {value}"])
+    
+    # Add request body if present
+    if data:
+        json_data = json.dumps(data)
+        command.extend(["-d", json_data])
+        # Add content-type header if not already present
+        if not any(h.lower() == "content-type" for h in headers):
+            command.extend(["-H", "Content-Type: application/json"])
+    
+    # Add URL (quoted to handle special characters)
+    command.append(url)
+    
+    # Format the command for display
+    curl_cmd = " ".join(shlex.quote(str(arg)) for arg in command)
+    
+    print("\n🔄 Equivalent cURL command:")
+    print(f"{curl_cmd}\n")
+
 def get_system_status(api_url, auth_token):
     """Get the system status including all devices"""
     print("Getting system status...")
     
+    url = f"{api_url}/GetSystemStatus"
+    headers = {"authClientToken": auth_token}
+    
+    print_as_curl(url, headers)
+    
     try:
         response = requests.get(
-            f"{api_url}/GetSystemStatus",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             timeout=10
         )
         
@@ -98,9 +129,14 @@ def set_advanced_eq_gain(api_url, auth_token, unique_id, channel, value):
             "Value": str(value)
         }
         
+        url = f"{api_url}/SetAdvancedEqGain"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetAdvancedEqGain",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -133,9 +169,14 @@ def set_advanced_eq_delay(api_url, auth_token, unique_id, channel, value):
             "Value": str(value)
         }
         
+        url = f"{api_url}/SetAdvancedEqDelay"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetAdvancedEqDelay",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -169,9 +210,14 @@ def set_advanced_eq_mode(api_url, auth_token, unique_id, channel, eq_index, mode
             "Mode": str(mode)
         }
         
+        url = f"{api_url}/SetAdvancedEqMode"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetAdvancedEqMode",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -207,9 +253,14 @@ def set_speaker_eq_fir(api_url, auth_token, unique_id, channel, values):
             "Values": string_values
         }
         
+        url = f"{api_url}/SetSpeakerEqFIR"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetSpeakerEqFIR",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -245,9 +296,14 @@ def set_output_eq_fir(api_url, auth_token, unique_id, channel, values):
             "Values": string_values
         }
         
+        url = f"{api_url}/SetOutputEqFIR"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetOutputEqFIR",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -280,9 +336,14 @@ def set_output_eq_gain(api_url, auth_token, unique_id, channel, value):
             "Value": str(value)
         }
         
+        url = f"{api_url}/SetOutputEqGain"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetOutputEqGain",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -315,9 +376,14 @@ def set_output_eq_phase(api_url, auth_token, unique_id, channel, value):
             "Value": value  # Boolean value
         }
         
+        url = f"{api_url}/SetOutputEqPhase"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/SetOutputEqPhase",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -348,9 +414,14 @@ def create_and_assign_group(api_url, auth_token, group_links):
             "GroupLinks": group_links
         }
         
+        url = f"{api_url}/CreateAndAssignGroup"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/CreateAndAssignGroup",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -379,9 +450,14 @@ def unassign_group(api_url, auth_token, group_links):
             "GroupLinks": group_links
         }
         
+        url = f"{api_url}/UnassignGroup"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/UnassignGroup",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
             timeout=10
         )
@@ -413,11 +489,18 @@ def open_entity_details(api_url, auth_token, unique_id, entity_type=None):
             payload["EntityType"] = entity_type
             print(f"Note: Using optional EntityType parameter: {entity_type}")
         
+        print(payload)
+
+        url = f"{api_url}/OpenEntityDetails"
+        headers = {"authClientToken": auth_token}
+        
+        print_as_curl(url, headers, method="POST", data=payload)
+        
         response = requests.post(
-            f"{api_url}/OpenEntityDetails",
-            headers={"authClientToken": auth_token},
+            url,
+            headers=headers,
             json=payload,
-            timeout=10
+            timeout=100
         )
         
         if response.status_code == 200:
