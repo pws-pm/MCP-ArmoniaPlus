@@ -18,9 +18,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Constants
-DEFAULT_API_URL = "http://192.168.1.30:40402/api/ARA"
-DEFAULT_AUTH_TOKEN = "fcb0d2ee-9179-4968-8799-690fd242d530"
+# Constants - removed hardcoded defaults
 
 def get_system_status(api_url, auth_token):
     """Get the system status including all devices"""
@@ -575,15 +573,25 @@ def create_group_links(include_guid=False):
 def main():
     """Main function to run the script"""
     parser = argparse.ArgumentParser(description='Test ArmoníaPlus API connectivity and operations')
-    parser.add_argument('--url', default=os.environ.get('ARMONIA_API_URL', DEFAULT_API_URL), 
-                        help=f'ArmoníaPlus API URL (default from .env or {DEFAULT_API_URL})')
-    parser.add_argument('--token', default=os.environ.get('ARMONIA_AUTH_TOKEN', DEFAULT_AUTH_TOKEN),
-                        help=f'Authentication token (default from .env or {DEFAULT_AUTH_TOKEN})')
+    parser.add_argument('--url', default=os.environ.get('ARMONIA_API_URL', ''),
+                        help='ArmoníaPlus API URL (default from .env ARMONIA_API_URL)')
+    parser.add_argument('--token', default=os.environ.get('ARMONIA_AUTH_TOKEN', ''),
+                        help='Authentication token (default from .env ARMONIA_AUTH_TOKEN)')
     args = parser.parse_args()
     
     print("=" * 60)
     print("ArmoníaPlus API Test Tool")
     print("=" * 60)
+    
+    # Check if required parameters are provided
+    if not args.url:
+        print("❌ API URL not provided. Please set ARMONIA_API_URL in .env file or use --url parameter.")
+        return 1
+    
+    if not args.token:
+        print("❌ Auth token not provided. Please set ARMONIA_AUTH_TOKEN in .env file or use --token parameter.")
+        return 1
+    
     print(f"API URL: {args.url}")
     print(f"Auth Token: {args.token}")
     print("=" * 60)
@@ -593,7 +601,7 @@ def main():
     
     if not devices:
         print("❌ Could not retrieve devices. Please check the API URL and token.")
-        return
+        return 1
     
     while True:
         print("\n" + "=" * 60)
