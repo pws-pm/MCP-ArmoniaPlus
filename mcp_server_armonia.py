@@ -241,6 +241,191 @@ async def open_entity_details(device_id: str, entity_type: Optional[str] = None)
     except Exception as e:
         return f"Error opening entity details: {str(e)}"
 
+@mcp.tool()
+async def set_advanced_eq_delay(device_id: str, channel: int, value: float) -> str:
+    """Set the delay of Advanced EQ for a specific device channel
+    
+    Args:
+        device_id: The unique ID of the device
+        channel: The channel number to adjust (0-based)
+        value: The delay value to set (in milliseconds)
+    """
+    try:
+        # Match payload format in check_armonia.py
+        data = {
+            "UniqueID": device_id,
+            "Channel": str(channel),
+            "Value": str(value)
+        }
+        response = call_armonia_api("SetAdvancedEqDelay", method="POST", data=data, timeout=10)
+        return f"Successfully set delay for device {device_id}, channel {channel} to {value} ms"
+    except Exception as e:
+        return f"Error setting advanced EQ delay: {str(e)}"
+
+@mcp.tool()
+async def set_speaker_eq_fir(device_id: str, channel: int, values: List[float]) -> str:
+    """Set the Speaker EQ FIR filters for a specific device channel
+    
+    Args:
+        device_id: The unique ID of the device
+        channel: The channel number to adjust (0-based)
+        values: List of FIR coefficient values
+    """
+    try:
+        # Convert values to strings as in check_armonia.py
+        string_values = [str(val) for val in values]
+        
+        data = {
+            "UniqueID": device_id,
+            "Channel": str(channel),
+            "Values": string_values
+        }
+        response = call_armonia_api("SetSpeakerEqFIR", method="POST", data=data, timeout=10)
+        return f"Successfully set Speaker EQ FIR for device {device_id}, channel {channel} with {len(values)} coefficients"
+    except Exception as e:
+        return f"Error setting Speaker EQ FIR: {str(e)}"
+
+@mcp.tool()
+async def set_output_eq_fir(device_id: str, channel: int, values: List[float]) -> str:
+    """Set the Output EQ FIR filters for a specific device channel
+    
+    Args:
+        device_id: The unique ID of the device
+        channel: The channel number to adjust (0-based)
+        values: List of FIR coefficient values
+    """
+    try:
+        # Convert values to strings as in check_armonia.py
+        string_values = [str(val) for val in values]
+        
+        data = {
+            "UniqueID": device_id,
+            "Channel": str(channel),
+            "Values": string_values
+        }
+        response = call_armonia_api("SetOutputEqFIR", method="POST", data=data, timeout=10)
+        return f"Successfully set Output EQ FIR for device {device_id}, channel {channel} with {len(values)} coefficients"
+    except Exception as e:
+        return f"Error setting Output EQ FIR: {str(e)}"
+
+@mcp.tool()
+async def set_output_eq_gain(device_id: str, channel: int, value: float) -> str:
+    """Set the Output EQ Gain for a specific device channel
+    
+    Args:
+        device_id: The unique ID of the device
+        channel: The channel number to adjust (0-based)
+        value: The gain value to set (in dB)
+    """
+    try:
+        data = {
+            "UniqueID": device_id,
+            "Channel": str(channel),
+            "Value": str(value)
+        }
+        response = call_armonia_api("SetOutputEqGain", method="POST", data=data, timeout=10)
+        return f"Successfully set Output EQ Gain for device {device_id}, channel {channel} to {value} dB"
+    except Exception as e:
+        return f"Error setting Output EQ Gain: {str(e)}"
+
+@mcp.tool()
+async def set_output_eq_phase(device_id: str, channel: int, invert_phase: bool) -> str:
+    """Set the Output EQ Phase for a specific device channel
+    
+    Args:
+        device_id: The unique ID of the device
+        channel: The channel number to adjust (0-based)
+        invert_phase: Whether to invert the phase (True) or set to normal (False)
+    """
+    try:
+        data = {
+            "UniqueID": device_id,
+            "Channel": str(channel),
+            "Value": invert_phase  # Boolean value as in check_armonia.py
+        }
+        response = call_armonia_api("SetOutputEqPhase", method="POST", data=data, timeout=10)
+        phase_status = "inverted" if invert_phase else "normal"
+        return f"Successfully set Output EQ Phase for device {device_id}, channel {channel} to {phase_status}"
+    except Exception as e:
+        return f"Error setting Output EQ Phase: {str(e)}"
+
+@mcp.tool()
+async def create_and_assign_group(group_links: List[Dict[str, str]]) -> str:
+    """Create and assign a group with the specified links
+    
+    Args:
+        group_links: List of dictionaries with UniqueID and Channel keys
+        Example: [{"UniqueID": "device1_id", "Channel": "0"}, {"UniqueID": "device2_id", "Channel": "1"}]
+    """
+    try:
+        data = {
+            "GroupLinks": group_links
+        }
+        response = call_armonia_api("CreateAndAssignGroup", method="POST", data=data, timeout=10)
+        
+        # Extract group ID from response
+        group_id = response.get("Guid", "Unknown")
+        
+        # Log successes and errors from response
+        successes = response.get("Successes", {})
+        errors = response.get("Errors", {})
+        
+        success_msg = f"Successfully created group with ID: {group_id}\n"
+        
+        if successes:
+            success_msg += "Successful assignments:\n"
+            for device_id, groups in successes.items():
+                for group_id, channels in groups.items():
+                    success_msg += f"- Device {device_id}, Group {group_id}: Channels {', '.join(channels)}\n"
+        
+        if errors:
+            success_msg += "Failed assignments:\n"
+            for error_info in errors:
+                success_msg += f"- {error_info}\n"
+                
+        return success_msg
+    except Exception as e:
+        return f"Error creating and assigning group: {str(e)}"
+
+@mcp.tool()
+async def unassign_group(group_links: List[Dict[str, str]]) -> str:
+    """Unassign channels from a group
+    
+    Args:
+        group_links: List of dictionaries with UniqueID, Guid, and Channel keys
+        Example: [{"UniqueID": "device1_id", "Guid": "group_guid", "Channel": "0"}]
+    """
+    try:
+        # Verify each link has required fields
+        for link in group_links:
+            if "UniqueID" not in link or "Guid" not in link or "Channel" not in link:
+                return f"Error: Each group link must contain 'UniqueID', 'Guid', and 'Channel' fields"
+        
+        data = {
+            "GroupLinks": group_links
+        }
+        response = call_armonia_api("UnassignGroup", method="POST", data=data, timeout=10)
+        
+        # Log successes and errors from response
+        successes = response.get("Successes", {})
+        errors = response.get("Errors", {})
+        
+        success_msg = "Successfully unassigned from groups:\n"
+        
+        if successes:
+            for device_id, groups in successes.items():
+                for group_id, channels in groups.items():
+                    success_msg += f"- Device {device_id}, Group {group_id}: Channels {', '.join(channels)}\n"
+        
+        if errors:
+            success_msg += "Failed unassignments:\n"
+            for error_info in errors:
+                success_msg += f"- {error_info}\n"
+                
+        return success_msg
+    except Exception as e:
+        return f"Error unassigning from group: {str(e)}"
+
 if __name__ == "__main__":
     # Initialize and run the server
     mcp.run(transport='stdio') 

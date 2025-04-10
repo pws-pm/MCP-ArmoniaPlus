@@ -19,7 +19,6 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Constants - removed hardcoded defaults
 
 def print_as_curl(url, headers, method="GET", data=None, timeout=10):
     """Generate and print the equivalent cURL command for debugging"""
@@ -191,47 +190,6 @@ def set_advanced_eq_delay(api_url, auth_token, unique_id, channel, value):
             return True
         else:
             print(f"❌ Failed to set Advanced EQ Delay: {response.status_code}")
-            print(f"Response: {response.text}")
-            return False
-            
-    except requests.RequestException as e:
-        print(f"❌ Error connecting to ArmoníaPlus API: {e}")
-        return False
-
-def set_advanced_eq_mode(api_url, auth_token, unique_id, channel, eq_index, mode):
-    """Set the Advanced EQ Mode for a specific channel and EQ index"""
-    print(f"Setting Advanced EQ Mode for device {unique_id}, channel {channel}, EQ index {eq_index} to {mode}...")
-    
-    try:
-        payload = {
-            "UniqueID": unique_id,
-            "Channel": str(channel),
-            "EqIndex": str(eq_index),
-            "Mode": str(mode)
-        }
-        
-        url = f"{api_url}/SetAdvancedEqMode"
-        headers = {"authClientToken": auth_token}
-        
-        print_as_curl(url, headers, method="POST", data=payload)
-        
-        response = requests.post(
-            url,
-            headers=headers,
-            json=payload,
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            print("✅ Advanced EQ Mode set successfully!")
-            data = response.json()
-            if data.get("ERROR_CODE"):
-                print(f"❌ API Error: {data.get('ERROR_CODE')}")
-                print(f"Description: {data.get('ERROR_DESCRIPTION')}")
-                return False
-            return True
-        else:
-            print(f"❌ Failed to set Advanced EQ Mode: {response.status_code}")
             print(f"Response: {response.text}")
             return False
             
@@ -555,7 +513,7 @@ def select_channel(max_channels=8):
     for i in range(max_channels):
         print(f"{i}. Channel {i}")
     
-    choice = input("\nEnter channel number (or x to cancel): ")
+    choice = input("\nEnter channel number (0-{}) or 'x' to cancel: ".format(max_channels-1))
     if choice.lower() == 'x':
         return None
     
@@ -564,17 +522,26 @@ def select_channel(max_channels=8):
         if 0 <= channel < max_channels:
             return channel
         else:
-            print("Invalid channel number.")
+            print(f"❌ Invalid channel number. Must be between 0 and {max_channels-1}.")
             return None
     except ValueError:
-        print("Invalid input. Please enter a number.")
+        print("❌ Invalid input. Please enter a number.")
         return None
 
 def get_float_value(prompt, min_val=-float('inf'), max_val=float('inf')):
     """Get a float value from user input with range validation"""
+    # Include range information in the prompt when limits are provided
+    if min_val > -float('inf') or max_val < float('inf'):
+        range_info = f" (valid range: {min_val} to {max_val})"
+        full_prompt = prompt + range_info
+    else:
+        full_prompt = prompt
+        
+    full_prompt += " (or 'x' to cancel): "
+    
     while True:
         try:
-            value_str = input(prompt)
+            value_str = input(full_prompt)
             if value_str.lower() == 'x':
                 return None
             
@@ -582,14 +549,14 @@ def get_float_value(prompt, min_val=-float('inf'), max_val=float('inf')):
             if min_val <= value <= max_val:
                 return value
             else:
-                print(f"Value must be between {min_val} and {max_val}.")
+                print(f"❌ Value must be between {min_val} and {max_val}.")
         except ValueError:
-            print("Invalid input. Please enter a number.")
+            print("❌ Invalid input. Please enter a number.")
 
 def get_boolean_value(prompt):
     """Get a boolean value from user input"""
     while True:
-        choice = input(f"{prompt} (y/n or x to cancel): ").lower()
+        choice = input(f"{prompt} (y/n or 'x' to cancel): ").lower()
         if choice == 'x':
             return None
         elif choice in ('y', 'yes', 'true', '1'):
@@ -597,12 +564,14 @@ def get_boolean_value(prompt):
         elif choice in ('n', 'no', 'false', '0'):
             return False
         else:
-            print("Invalid input. Please enter 'y' or 'n'.")
+            print("❌ Invalid input. Please enter 'y' or 'n'.")
 
 def get_fir_values():
     """Get FIR filter values from user input"""
-    print("\nEnter FIR filter values (comma-separated list of numbers, or 'x' to cancel):")
+    print("\nEnter FIR filter values (comma-separated list of decimal numbers between -1.0 and 1.0)")
     print("Example: 0.125,0.230,0.314,0.374,-0.412,0.428,0.424")
+    print("Note: Typical FIR filter coefficients are between -1.0 and 1.0")
+    print("Enter 'x' to cancel")
     
     values_str = input("> ")
     if values_str.lower() == 'x':
@@ -612,11 +581,19 @@ def get_fir_values():
         # Split by comma and convert to float
         values = [float(v.strip()) for v in values_str.split(',')]
         if not values:
-            print("No values provided.")
+            print("❌ No values provided.")
             return None
+            
+        # Check if values are in reasonable range
+        if any(abs(v) > 1.0 for v in values):
+            print("⚠️ Warning: Some values are outside the typical range of -1.0 to 1.0")
+            confirm = input("Continue anyway? (y/n): ").lower()
+            if confirm not in ('y', 'yes'):
+                return None
+                
         return values
     except ValueError:
-        print("Invalid input. Please enter comma-separated numbers.")
+        print("❌ Invalid input. Please enter comma-separated numbers.")
         return None
 
 def create_group_links(include_guid=False):
@@ -694,17 +671,16 @@ def main():
         print("2. Open Entity Details")
         print("3. Set Advanced EQ Gain")
         print("4. Set Advanced EQ Delay")
-        print("5. Set Advanced EQ Mode")
-        print("6. Set Speaker EQ FIR")
-        print("7. Set Output EQ FIR")
-        print("8. Set Output EQ Gain")
-        print("9. Set Output EQ Phase")
-        print("10. Create And Assign Group")
-        print("11. Unassign Group")
+        print("5. Set Speaker EQ FIR")
+        print("6. Set Output EQ FIR")
+        print("7. Set Output EQ Gain")
+        print("8. Set Output EQ Phase")
+        print("9. Create And Assign Group")
+        print("10. Unassign Group")
         print("0. Exit")
         print("=" * 60)
         
-        choice = input("Select an operation (0-11): ").strip()
+        choice = input("Select an operation (0-10): ").strip()
         
         if choice == '0':
             print("Exiting...")
@@ -718,7 +694,9 @@ def main():
                 device = select_device(devices)
                 if device:
                     # Ask for entity type (optional parameter)
-                    entity_type_input = input("Enter entity type (optional, press Enter to skip): ").strip()
+                    print("\nEntity type is optional. Common types might include 'AMPLIFIER', 'SPEAKER', etc.")
+                    print("Press Enter to skip")
+                    entity_type_input = input("Enter entity type (optional): ").strip()
                     entity_type = entity_type_input if entity_type_input else None
                     
                     # Get device ID with correct case first
@@ -731,13 +709,15 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    channel = input("Enter channel number: ").strip()
-                    try:
-                        value = float(input("Enter gain value (dB): ").strip())
-                        device_id = device.get('UniqueID') or device.get('uniqueID')
-                        set_advanced_eq_gain(args.url, args.token, device_id, channel, value)
-                    except ValueError:
-                        print("❌ Invalid gain value. Please enter a numeric value.")
+                    # For most amplifiers, 0-3 or 0-7 channels are typical
+                    max_channels = 8  # This could be determined from device model in a future version
+                    channel = select_channel(max_channels)
+                    if channel is not None:
+                        # Typical gain range for most EQs is -15dB to +15dB
+                        value = get_float_value("Enter gain value (dB)", min_val=-15.0, max_val=15.0)
+                        if value is not None:
+                            device_id = device.get('UniqueID') or device.get('uniqueID')
+                            set_advanced_eq_gain(args.url, args.token, device_id, channel, value)
             else:
                 print("❌ No devices available. Please get system status first.")
                 
@@ -745,13 +725,14 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    channel = input("Enter channel number: ").strip()
-                    try:
-                        value = float(input("Enter delay value (ms): ").strip())
-                        device_id = device.get('UniqueID') or device.get('uniqueID')
-                        set_advanced_eq_delay(args.url, args.token, device_id, channel, value)
-                    except ValueError:
-                        print("❌ Invalid delay value. Please enter a numeric value.")
+                    max_channels = 8
+                    channel = select_channel(max_channels)
+                    if channel is not None:
+                        # Typical delay range for most devices (in milliseconds)
+                        value = get_float_value("Enter delay value (ms)", min_val=0.0, max_val=1000.0)
+                        if value is not None:
+                            device_id = device.get('UniqueID') or device.get('uniqueID')
+                            set_advanced_eq_delay(args.url, args.token, device_id, channel, value)
             else:
                 print("❌ No devices available. Please get system status first.")
                 
@@ -759,11 +740,13 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    channel = input("Enter channel number: ").strip()
-                    eq_index = input("Enter EQ index: ").strip()
-                    mode = input("Enter mode (e.g., 'PEAK', 'NOTCH', 'LOWSHELF', 'HIGHSHELF'): ").strip()
-                    device_id = device.get('UniqueID') or device.get('uniqueID')
-                    set_advanced_eq_mode(args.url, args.token, device_id, channel, eq_index, mode)
+                    max_channels = 8
+                    channel = select_channel(max_channels)
+                    if channel is not None:
+                        values = get_fir_values()
+                        if values:
+                            device_id = device.get('UniqueID') or device.get('uniqueID')
+                            set_speaker_eq_fir(args.url, args.token, device_id, channel, values)
             else:
                 print("❌ No devices available. Please get system status first.")
                 
@@ -771,11 +754,13 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    channel = input("Enter channel number: ").strip()
-                    values_str = input("Enter FIR values (comma separated): ").strip()
-                    values = [v.strip() for v in values_str.split(',')]
-                    device_id = device.get('UniqueID') or device.get('uniqueID')
-                    set_speaker_eq_fir(args.url, args.token, device_id, channel, values)
+                    max_channels = 8
+                    channel = select_channel(max_channels)
+                    if channel is not None:
+                        values = get_fir_values()
+                        if values:
+                            device_id = device.get('UniqueID') or device.get('uniqueID')
+                            set_output_eq_fir(args.url, args.token, device_id, channel, values)
             else:
                 print("❌ No devices available. Please get system status first.")
                 
@@ -783,11 +768,14 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    channel = input("Enter channel number: ").strip()
-                    values_str = input("Enter FIR values (comma separated): ").strip()
-                    values = [v.strip() for v in values_str.split(',')]
-                    device_id = device.get('UniqueID') or device.get('uniqueID')
-                    set_output_eq_fir(args.url, args.token, device_id, channel, values)
+                    max_channels = 8
+                    channel = select_channel(max_channels)
+                    if channel is not None:
+                        # Typical output gain range
+                        value = get_float_value("Enter gain value (dB)", min_val=-80.0, max_val=20.0)
+                        if value is not None:
+                            device_id = device.get('UniqueID') or device.get('uniqueID')
+                            set_output_eq_gain(args.url, args.token, device_id, channel, value)
             else:
                 print("❌ No devices available. Please get system status first.")
                 
@@ -795,36 +783,23 @@ def main():
             if devices:
                 device = select_device(devices)
                 if device:
-                    channel = input("Enter channel number: ").strip()
-                    try:
-                        value = float(input("Enter gain value (dB): ").strip())
-                        device_id = device.get('UniqueID') or device.get('uniqueID')
-                        set_output_eq_gain(args.url, args.token, device_id, channel, value)
-                    except ValueError:
-                        print("❌ Invalid gain value. Please enter a numeric value.")
-            else:
-                print("❌ No devices available. Please get system status first.")
-                
-        elif choice == '9':
-            if devices:
-                device = select_device(devices)
-                if device:
-                    channel = input("Enter channel number: ").strip()
-                    phase_str = input("Enter phase (true/false): ").strip().lower()
-                    if phase_str in ('true', 't', 'yes', 'y', '1'):
-                        value = True
-                    elif phase_str in ('false', 'f', 'no', 'n', '0'):
-                        value = False
-                    else:
-                        print("❌ Invalid phase value. Please enter true or false.")
-                        continue
-                    device_id = device.get('UniqueID') or device.get('uniqueID')
-                    set_output_eq_phase(args.url, args.token, device_id, channel, value)
+                    max_channels = 8
+                    channel = select_channel(max_channels)
+                    if channel is not None:
+                        # Phase is a boolean value (true/false)
+                        print("\nPhase can be either 'normal' (false) or 'inverted' (true)")
+                        value = get_boolean_value("Invert phase?")
+                        if value is not None:
+                            device_id = device.get('UniqueID') or device.get('uniqueID')
+                            set_output_eq_phase(args.url, args.token, device_id, channel, value)
             else:
                 print("❌ No devices available. Please get system status first.")
         
-        elif choice == '10':
+        elif choice == '9':
             if devices:
+                print("\nCreate and assign a new group to multiple channels")
+                print("You'll be prompted to enter device IDs and channel numbers.")
+                print("Enter 'x' when finished adding channels to the group.")
                 # Create links without GUID for assignment
                 group_links = create_group_links(include_guid=False)
                 if group_links:
@@ -832,8 +807,11 @@ def main():
             else:
                 print("❌ No devices available. Please get system status first.")
         
-        elif choice == '11':
+        elif choice == '10':
             if devices:
+                print("\nUnassign channels from a group")
+                print("You'll need to provide the Group GUID for each channel.")
+                print("The GUID can be obtained after creating a group.")
                 # Create links *with* GUID for unassignment
                 group_links = create_group_links(include_guid=True)
                 if group_links:
